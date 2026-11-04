@@ -7,36 +7,48 @@ Systèmes utilisés : Windows 11 + WSL2 (Ubuntu) + Docker Desktop
 Le bloc Server correspond au moteur Docker qui exécute les commandes et gère les conteneurs et les images. 
 Si le bloc Server est absent, cela signifie que le client ne parvient pas à communiquer avec le moteur Docker, par exemple parce qu’il n’est pas démarré.
 
-1.2 : Dans la commande -p 8080:80, le premier nombre 8080 correspond au port de la machine et le deuxième nombre 80 correspond au port du conteneur. Cette liaison permet d’accéder au serveur web du conteneur depuis le navigateur de la machine.
+1.2 : Dans la commande -p 8080:80, le premier nombre 8080 correspond au port de la machine et le deuxième nombre 80 correspond au port du conteneur. 
+Cette liaison permet d’accéder au serveur web du conteneur depuis le navigateur de la machine.
 
-1.3 : Une image est un modèle qui contient les éléments nécessaires pour lancer une application. Un conteneur est une instance (un exemplaire) de cette image qui s’exécute. L’image peut rester présente même après l’arrêt et la suppression du conteneur.
+1.3 : Une image est un modèle qui contient les éléments nécessaires pour lancer une application. Un conteneur est une instance (un exemplaire) de cette image qui s’exécute.
+ L’image peut rester présente même après l’arrêt et la suppression du conteneur.
 
 ## Palier 2
-2.2 : Non, EXPOSE 8080 ne suffit pas pour accéder à la page depuis le navigateur. Cette instruction indique le port utilisé par l’application dans le conteneur, mais elle ne publie pas ce port sur la machine. Il faut utiliser -p avec docker run pour établir la liaison entre les deux ports.
+2.2 : Non, EXPOSE 8080 ne suffit pas pour accéder à la page depuis le navigateur. Cette instruction indique le port utilisé par l’application dans le conteneur,
+ mais elle ne publie pas ce port sur la machine. Il faut utiliser -p avec docker run pour établir la liaison entre les deux ports.
 
 2.3 : Le . à la fin de la commande indique que Docker utilise le dossier où l’on se trouve pour construire l’image. Il y cherche le Dockerfile et les fichiers nécessaires.
 On utilise -p 8080:8080 car Nginx écoute sur le port 8080 dans le conteneur PetitPanier. Dans le premier palier, Nginx écoutait sur le port 80.
 
-2.4 : Après la construction de l’image 2.0, la page affichait encore la version 1.0, parce que le conteneur en cours utilisait toujours l’ancienne image. Il faut supprimer ce conteneur et en lancer un nouveau à partir de l’image 2.0 pour afficher la nouvelle version sur le port 8080.
+2.4 : Après la construction de l’image 2.0, la page affichait encore la version 1.0, parce que le conteneur en cours utilisait toujours l’ancienne image. 
+Il faut supprimer ce conteneur et en lancer un nouveau à partir de l’image 2.0 pour afficher la nouvelle version sur le port 8080.
 
 ## Palier 3
-3.2 : `Up` signifie que le conteneur tourne (le processus est lancé). `Up (healthy)` signifie qu'en plus le test de santé réussit, donc le service répond vraiment. C'est le bloc `healthcheck` du `compose.yaml` qui produit cette différence. Chez nous, le conteneur était `unhealthy` car `localhost` pointait vers l'IPv6 alors que nginx n'écoute qu'en IPv4. Preuve : `wget http://localhost:8080` donnait « Connection refused » alors que `wget http://127.0.0.1:8080` affichait la page. Correction : `127.0.0.1` dans le healthcheck, puis `Up (healthy)`.
+3.2 : `Up` signifie que le conteneur tourne (le processus est lancé). `Up (healthy)` signifie qu'en plus le test de santé réussit, donc le service répond vraiment. 
+C'est le bloc `healthcheck` du `compose.yaml` qui produit cette différence. Chez nous, le conteneur était `unhealthy` car `localhost` pointait vers l'IPv6 alors que nginx n'écoute qu'en IPv4. 
+Preuve : `wget http://localhost:8080` donnait « Connection refused » alors que `wget http://127.0.0.1:8080` affichait la page. Correction : `127.0.0.1` dans le healthcheck, puis `Up (healthy)`.
 
-3.3 : La seconde commande échoue car `localhost` désigne toujours la machine ou le conteneur depuis lequel on parle, ici busybox, qui n'héberge aucun site. `app` est le nom du service dans `compose.yaml` : Compose le traduit en adresse IP du conteneur grâce au DNS interne du réseau `petitpanier_default`.
+3.3 : La seconde commande échoue car `localhost` désigne toujours la machine ou le conteneur depuis lequel on parle, ici busybox, qui n'héberge aucun site. 
+`app` est le nom du service dans `compose.yaml` : Compose le traduit en adresse IP du conteneur grâce au DNS interne du réseau `petitpanier_default`.
 
 ## Palier 4
-4.1 : `kind load` est nécessaire car le cluster kind tourne dans son propre conteneur, avec son propre stockage d'images : il ne voit pas les images de la machine hôte. En entreprise, on pousse l'image vers un registre (Docker Hub, GitHub Container Registry, registre privé) et Kubernetes la télécharge depuis là.
+4.1 : `kind load` est nécessaire car le cluster kind tourne dans son propre conteneur, avec son propre stockage d'images : il ne voit pas les images de la machine hôte. 
+En entreprise, on pousse l'image vers un registre (Docker Hub, GitHub Container Registry, registre privé) et Kubernetes la télécharge depuis là.
 
-4.2 : Les labels `app: petitpanier` relient les objets : le Deployment sait quels Pods lui appartiennent, et le Service sait quels Pods viser. Si le `selector` du Service était différent, il ne trouverait aucun Pod : la liste ENDPOINTS serait vide et le site inaccessible.
+4.2 : Les labels `app: petitpanier` relient les objets : le Deployment sait quels Pods lui appartiennent, et le Service sait quels Pods viser. 
+Si le `selector` du Service était différent, il ne trouverait aucun Pod : la liste ENDPOINTS serait vide et le site inaccessible.
 
-4.3 : L'adresse dans ENDPOINTS (`10.244.0.5:8080`) est l'IP interne du Pod vers laquelle le Service redirige le trafic. Elle n'existe qu'à l'intérieur du cluster, donc on utilise `kubectl port-forward` pour créer un tunnel entre `localhost:8080` et le Service.
+4.3 : L'adresse dans ENDPOINTS (`10.244.0.5:8080`) est l'IP interne du Pod vers laquelle le Service redirige le trafic. 
+Elle n'existe qu'à l'intérieur du cluster, donc on utilise `kubectl port-forward` pour créer un tunnel entre `localhost:8080` et le Service.
 
 ## Palier 5
 5.1 : Les trois Pods peuvent tourner sur le même nœud, car le cluster local Kind ne comporte qu’un seul nœud de travail. On ne peut donc pas parler de haute disponibilité entre plusieurs nœuds.
 
 5.2 : Le Deployment Kubernetes a recréé le Pod supprimé pour maintenir l’état désiré, c’est-à-dire conserver le nombre de Pods demandé.
 
-5.3 : web est le nom du conteneur dans le Deployment. La commande kubectl set image permet de changer l’image utilisée par ce conteneur. kubectl rollout history affiche l’historique des révisions du Deployment. Le nombre de révisions doit être indiqué d’après le résultat obtenu avec la commande, car le document ne donne pas de nombre fixe.
+5.3 : web est le nom du conteneur dans le Deployment. La commande kubectl set image permet de changer l’image utilisée par ce conteneur. 
+kubectl rollout history affiche l’historique des révisions du Deployment. Le nombre de révisions doit être indiqué d’après le résultat obtenu avec la commande, 
+car le document ne donne pas de nombre fixe.
 
 ## Palier 6 — tableau de diagnostic
 | Panne | Symptôme | Hypothèse | Commande de preuve et résultat | Correction |
