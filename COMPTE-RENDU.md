@@ -67,13 +67,14 @@ Le Service n'a donc aucun endpoint et ne redirige le trafic nulle part.
 | Étape | Commande                         | Si cette étape échoue, que se passe-t-il ? |
 |---|---|---|
 | build |docker build -t petitpanier:1.0 . |L’image n’est pas construite ; le pipeline s’arrête. |
-| test | | |
-| publish | | |
-| deploy | | |
+| test | docker compose up -d puis docker compose ps (état healthy) | L'image est jugée défectueuse : on ne la publie pas et le pipeline s'arrête. |
+| publish | docker push registre/petitpanier:identifiant-du-commit | L'image n'est pas disponible pour le cluster : pas de déploiement. |
+| deploy | kubectl apply -f k8s/ puis kubectl rollout status deployment/petitpanier | La mise à jour échoue : retour à la version précédente avec kubectl rollout undo, et l'équipe est prévenue. |
 
 7.1 : Le pipeline utilise l’identifiant du commit comme tag afin d’identifier précisément la version du code ayant servi à construire l’image Docker. Contrairement au tag `latest`, qui peut désigner une image différente à chaque nouvelle construction, le tag associé au commit permet de retrouver et de déployer une version spécifique, ainsi que de revenir à une version antérieure en cas de problème.
 
-Workflow n8n :
+Workflow n8n :Webhook (le pipeline envoie le résultat du déploiement) → IF statut = failed → message Slack dans #petitpanier-ops indiquant que le déploiement de PetitPanier a échoué. 
+Si statut = success, aucune alerte (ou un message de confirmation). Le token Slack est rangé dans les Credentials de n8n (coffre chiffré), pas dans le workflow ni dans le dépôt Git.
 
 
 ## Défis réalisés
