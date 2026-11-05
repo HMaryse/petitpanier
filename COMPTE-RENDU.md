@@ -59,6 +59,7 @@ car le document ne donne pas de nombre fixe.
 
 6.2 (--previous) : kubectl logs sans --previous affiche les logs du conteneur actuel, qui vient de redémarrer et n'a parfois encore rien écrit, donc la sortie peut être vide. 
 L'erreur a été écrite par l'instance précédente, déjà plantée : --previous affiche ses logs.
+
 6.3 (pourquoi Running mais inaccessible) : Les Pods tournent, mais le selector du Service (app: promo-three) ne correspond à aucun label de Pod (app: promo-3). 
 Le Service n'a donc aucun endpoint et ne redirige le trafic nulle part.
 
