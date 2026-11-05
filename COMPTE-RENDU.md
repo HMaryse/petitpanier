@@ -53,12 +53,14 @@ car le document ne donne pas de nombre fixe.
 ## Palier 6 — tableau de diagnostic
 | Panne | Symptôme | Hypothèse | Commande de preuve et résultat | Correction |
 |---|---|---|---|---|
-| promo-1 | | | | |
-| promo-2 | | | | |
-| promo-3 | | | | |
+| promo-1 | `ErrImagePull` puis `ImagePullBackOff`, READY 0/1 | L'image demandée n'existe pas (faute dans le tag) | `kubectl describe pod promo-1-6bb5858789-r4dzb` : Events `Failed to pull image "petitpanier:1.O": repository does not exist` | Tag `1.O` (lettre O) remplacé par `1.0` (zéro), puis `kubectl apply -f pannes/panne-1.yaml` : Running, 1/1 |
+| promo-2 | `CrashLoopBackOff`, READY 0/1, RESTARTS qui augmente | Le programme plante au démarrage | `kubectl logs promo-2-64cb6c59c9-tjxm5 --previous` : `ERREUR : variable PROMO_CODE absente` ; Events : `Back-off restarting failed container web` | Suppression de la ligne `command` (exit 1), puis `kubectl apply -f pannes/panne-2.yaml` : Running, 1/1 |
+| promo-3 | Pods Running 1/1, site inaccessible | Le Service ne cible aucun Pod : le selector ne correspond pas aux labels | `kubectl get endpoints promo-3` : `<none>` ; `kubectl get svc promo-3 -o yaml` : selector `app: promo-three` | Selector remplacé par `app: promo-3`, puis `kubectl apply -f pannes/panne-3.yaml` : 2 endpoints |
 
-6.2 (--previous) :
-6.3 (pourquoi Running mais inaccessible) :
+6.2 (--previous) : kubectl logs sans --previous affiche les logs du conteneur actuel, qui vient de redémarrer et n'a parfois encore rien écrit, donc la sortie peut être vide. 
+L'erreur a été écrite par l'instance précédente, déjà plantée : --previous affiche ses logs.
+6.3 (pourquoi Running mais inaccessible) : Les Pods tournent, mais le selector du Service (app: promo-three) ne correspond à aucun label de Pod (app: promo-3). 
+Le Service n'a donc aucun endpoint et ne redirige le trafic nulle part.
 
 ## Palier 7
 | Étape | Commande                         | Si cette étape échoue, que se passe-t-il ? |
