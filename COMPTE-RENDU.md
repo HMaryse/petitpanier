@@ -46,9 +46,8 @@ Elle n'existe qu'à l'intérieur du cluster, donc on utilise `kubectl port-forwa
 
 5.2 : Le Deployment Kubernetes a recréé le Pod supprimé pour maintenir l’état désiré, c’est-à-dire conserver le nombre de Pods demandé.
 
-5.3 : web est le nom du conteneur dans le Deployment. La commande kubectl set image permet de changer l’image utilisée par ce conteneur. 
-kubectl rollout history affiche l’historique des révisions du Deployment. Le nombre de révisions doit être indiqué d’après le résultat obtenu avec la commande, 
-car le document ne donne pas de nombre fixe.
+5.3 : web est le nom du conteneur dans le Deployment. La commande kubectl set image permet de changer l’image utilisée.
+kubectl rollout history affiche l'historique des révisions du Deployment. Après la mise à jour vers 2.0, il affichait 2 révisions (1 et 2). Après le rollout undo, il affiche 2 révisions (2 et 3) : l'ancienne révision 1 est recréée sous le numéro 3. 
 
 ## Palier 6 — tableau de diagnostic
 | Panne | Symptôme | Hypothèse | Commande de preuve et résultat | Correction |
