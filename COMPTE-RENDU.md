@@ -70,11 +70,11 @@ kubectl rollout history affiche l'historique des révisions du Deployment. Aprè
 
 
 ## Palier 7
-| Étape   | Commande                         | Si cette étape échoue, que se passe-t-il ? |
-|---|---  |----------------------------------|------------------------
-| build   |docker build -t petitpanier:1.0 . |L’image n’est pas construite. Il faut vérifier le Dockerfile et les fichiers nécessaires.|
+| Étape | Commande | Si cette étape échoue, que se passe-t-il ? |
+|---|---|---|
+| build | docker build -t petitpanier:1.0 . | L’image n’est pas construite. Il faut vérifier le Dockerfile et les fichiers nécessaires. |
 | test | docker run --name petitpanier -d -p 8080:8080 petitpanier:1.0 | Le conteneur ne démarre pas ou la page ne s’affiche pas sur localhost:8080 |
-| publish | kind load docker-image petitpanier:1.0 --name petitpanier |L’image n’est pas disponible dans le cluster Kind, pas de déploiement. |
+| publish | kind load docker-image petitpanier:1.0 --name petitpanier | L’image n’est pas disponible dans le cluster Kind, pas de déploiement. |
 | deploy | kubectl apply -f k8s/ puis kubectl rollout status deployment/petitpanier | Les ressources Kubernetes ne sont pas créées ou mises à jour. Il faut vérifier les fichiers YAML et les erreurs affichées. |
 
 7.1 : Le pipeline utilise l’identifiant du commit comme tag afin d’identifier précisément la version du code ayant servi à construire l’image Docker. Contrairement au tag `latest`, qui peut désigner une image différente à chaque nouvelle construction, le tag associé au commit permet de retrouver et de déployer une version spécifique, ainsi que de revenir à une version antérieure en cas de problème.
