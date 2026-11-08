@@ -13,6 +13,8 @@ Cette liaison permet d’accéder au serveur web du conteneur depuis le navigate
 1.3 : Une image est un modèle qui contient les éléments nécessaires pour lancer une application. Un conteneur est une instance (un exemplaire) de cette image qui s’exécute.
  L’image peut rester présente même après l’arrêt et la suppression du conteneur.
 
+Défi 1: Il est impossible de publier deux conteneurs sur le même port 8081 de la machine, car ce port est déjà utilisé par le premier conteneur. Un même port de l'ordinateur ne peut pas être attribué simultanément à deux conteneurs différents. Il faut donc utiliser des ports différents.
+
 ## Palier 2
 2.2 : Non, EXPOSE 8080 ne suffit pas pour accéder à la page depuis le navigateur. Cette instruction indique le port utilisé par l’application dans le conteneur,
  mais elle ne publie pas ce port sur la machine. Il faut utiliser -p avec docker run pour établir la liaison entre les deux ports.
@@ -22,6 +24,8 @@ On utilise -p 8080:8080 car Nginx écoute sur le port 8080 dans le conteneur Pet
 
 2.4 : Après la construction de l’image 2.0, la page affichait encore la version 1.0, parce que le conteneur en cours utilisait toujours l’ancienne image. 
 Il faut supprimer ce conteneur et en lancer un nouveau à partir de l’image 2.0 pour afficher la nouvelle version sur le port 8080.
+
+Défi 2 : Les étapes marquées CACHED sont celles dont les instructions et les fichiers utilisés n'ont pas changé depuis la construction précédente. Docker réutilise alors les résultats déjà enregistrés au lieu de refaire ces étapes. Le build est donc plus rapide, car il évite de reconstruire inutilement les mêmes couches.
 
 ## Palier 3
 3.2 : `Up` signifie que le conteneur tourne (le processus est lancé). `Up (healthy)` signifie qu'en plus le test de santé réussit, donc le service répond vraiment. 
@@ -50,29 +54,37 @@ Elle n'existe qu'à l'intérieur du cluster, donc on utilise `kubectl port-forwa
 kubectl rollout history affiche l'historique des révisions du Deployment. Après la mise à jour vers 2.0, il affichait 2 révisions (1 et 2). Après le rollout undo, il affiche 2 révisions (2 et 3) : l'ancienne révision 1 est recréée sous le numéro 3. 
 
 ## Palier 6 — tableau de diagnostic
-| Panne | Symptôme | Hypothèse | Commande de preuve et résultat | Correction |
-|---|---|---|---|---|
-| promo-1 | `ErrImagePull` puis `ImagePullBackOff`, READY 0/1 | L'image demandée n'existe pas (faute dans le tag) | `kubectl describe pod promo-1-6bb5858789-r4dzb` : Events `Failed to pull image "petitpanier:1.O": repository does not exist` | Tag `1.O` (lettre O) remplacé par `1.0` (zéro), puis `kubectl apply -f pannes/panne-1.yaml` : Running, 1/1 |
-| promo-2 | `CrashLoopBackOff`, READY 0/1, RESTARTS qui augmente | Le programme plante au démarrage | `kubectl logs promo-2-64cb6c59c9-tjxm5 --previous` : `ERREUR : variable PROMO_CODE absente` ; Events : `Back-off restarting failed container web` | Suppression de la ligne `command` (exit 1), puis `kubectl apply -f pannes/panne-2.yaml` : Running, 1/1 |
-| promo-3 | Pods Running 1/1, site inaccessible | Le Service ne cible aucun Pod : le selector ne correspond pas aux labels | `kubectl get endpoints promo-3` : `<none>` ; `kubectl get svc promo-3 -o yaml` : selector `app: promo-three` | Selector remplacé par `app: promo-3`, puis `kubectl apply -f pannes/panne-3.yaml` : 2 endpoints |
+| Panne   | Symptôme | Hypothèse | Commande de preuve et résultat | Correction |
+|---|---  |---           |---|---|
+| promo-1 |Le Pod ne démarre pas : ImagePullBackOff | L’image indiquée dans le Deployment ne peut pas être récupérée. | `kubectl describe pod promo-1-6bb5858789-r4dzb` : Events `Failed to pull image "petitpanier:1.O": repository does not exist` | Tag `1.O` (lettre O) remplacé par `1.0` (zéro), puis `kubectl apply -f pannes/panne-1.yaml` : Running, 1/1 |
 
-6.2 (--previous) : kubectl logs sans --previous affiche les logs du conteneur actuel, qui vient de redémarrer et n'a parfois encore rien écrit, donc la sortie peut être vide. 
-L'erreur a été écrite par l'instance précédente, déjà plantée : --previous affiche ses logs.
+| promo-2 | Le Pod affiche CrashLoopBackOff et redémarre. | La commande de démarrage échoue, car la variable PROMO_CODE est absente. | `kubectl logs promo-2-64cb6c59c9-tjxm5 --previous` : `ERREUR : variable PROMO_CODE absente` ; Events : `Back-off restarting failed container web` | Suppression de la ligne `command` (exit 1), puis `kubectl apply -f pannes/panne-2.yaml` : Running, 1/1 |
 
-6.3 (pourquoi Running mais inaccessible) : Les Pods tournent, mais le selector du Service (app: promo-three) ne correspond à aucun label de Pod (app: promo-3). 
-Le Service n'a donc aucun endpoint et ne redirige le trafic nulle part.
+| promo-3 | Les Pods sont Running, mais le site ne répond pas. | Le Service ne cible aucun Pod : le selector ne correspond pas aux labels | `kubectl get endpoints promo-3` : `<none>` ; `kubectl get svc promo-3 -o yaml` : selector `app: promo-three` aucun endpoint n’est affiché avant correction. | Selector remplacé par `app: promo-3`, puis `kubectl apply -f pannes/panne-3.yaml` : 2 endpoints |
+
+
+6.2 (--previous) : L’option --previous permet de consulter les logs du conteneur précédent, notamment après un redémarrage. Sans cette option, les logs peuvent être vides, car le conteneur actuel vient de redémarrer et n’a pas encore produit de message.
+
+6.3 (pourquoi Running mais inaccessible) : Les Pods peuvent être Running, mais le Service ne peut pas leur transmettre les requêtes si son sélecteur ne correspond pas aux labels des Pods. Dans le cas de promo-3, le sélecteur app: promo-three ne correspond pas au label app: promo-3. Le Service n’a donc aucun endpoint.
+
+
 
 ## Palier 7
-| Étape | Commande                         | Si cette étape échoue, que se passe-t-il ? |
-|---|---|---|
-| build |docker build -t petitpanier:1.0 . |L’image n’est pas construite ; le pipeline s’arrête. |
-| test | docker compose up -d puis docker compose ps (état healthy) | L'image est jugée défectueuse : on ne la publie pas et le pipeline s'arrête. |
-| publish | docker push registre/petitpanier:identifiant-du-commit | L'image n'est pas disponible pour le cluster : pas de déploiement. |
-| deploy | kubectl apply -f k8s/ puis kubectl rollout status deployment/petitpanier | La mise à jour échoue : retour à la version précédente avec kubectl rollout undo, et l'équipe est prévenue. |
+| Étape   | Commande                         | Si cette étape échoue, que se passe-t-il ? |
+|---|---  |----------------------------------|------------------------
+
+| build   |docker build -t petitpanier:1.0 . |L’image n’est pas construite. Il faut vérifier le Dockerfile et les fichiers nécessaires.|
+
+| test | docker run --name petitpanier -d -p 8080:8080 petitpanier:1.0 | Le conteneur ne démarre pas ou la page ne s’affiche pas sur localhost:8080 |
+
+| publish | kind load docker-image petitpanier:1.0 --name petitpanier |L’image n’est pas disponible dans le cluster Kind, pas de déploiement. |
+
+| deploy | kubectl apply -f k8s/ puis kubectl rollout status deployment/petitpanier | Les ressources Kubernetes ne sont pas créées ou mises à jour. Il faut vérifier les fichiers YAML et les erreurs affichées. |
 
 7.1 : Le pipeline utilise l’identifiant du commit comme tag afin d’identifier précisément la version du code ayant servi à construire l’image Docker. Contrairement au tag `latest`, qui peut désigner une image différente à chaque nouvelle construction, le tag associé au commit permet de retrouver et de déployer une version spécifique, ainsi que de revenir à une version antérieure en cas de problème.
 
-Workflow n8n :Webhook (le pipeline envoie le résultat du déploiement) → IF statut = failed → message Slack dans #petitpanier-ops indiquant que le déploiement de PetitPanier a échoué. 
+Workflow n8n :
+Webhook (le pipeline envoie le résultat du déploiement) → IF statut = failed → message Slack dans #petitpanier-ops indiquant que le déploiement de PetitPanier a échoué. 
 Si statut = success, aucune alerte (ou un message de confirmation). Le token Slack est rangé dans les Credentials de n8n (coffre chiffré), pas dans le workflow ni dans le dépôt Git.
 
 
