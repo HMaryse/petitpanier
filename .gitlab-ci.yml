@@ -1,0 +1,34 @@
+
+stages:
+  - build
+  - test
+  - publish
+  - deploy
+
+# JOB 1 : CONSTRUIRE L'IMAGE DOCKER
+build:
+  stage: build
+  script:
+    - docker build -t petitpanier:1.0 .
+
+# JOB 2 : TESTER LE CONTENEUR
+test:
+  stage: test
+  script:
+    - docker rm -f petitpanier || true
+    - docker run --name petitpanier -d -p 8080:8080 petitpanier:1.0
+    - curl -f http://localhost:8080
+    - docker rm -f petitpanier
+
+# JOB 3 : CHARGER L'IMAGE DANS KIND
+publish:
+  stage: publish
+  script:
+    - kind load docker-image petitpanier:1.0 --name petitpanier
+
+# JOB 4 : DEPLOYER SUR KUBERNETES
+deploy:
+  stage: deploy
+  script:
+    - kubectl apply -f k8s/
+    - kubectl rollout status deployment/petitpanier
