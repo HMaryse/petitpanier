@@ -7,7 +7,7 @@ Systèmes utilisés : Windows 11 + WSL2 (Ubuntu) + Docker Desktop
 Le bloc Server correspond au moteur Docker qui exécute les commandes et gère les conteneurs et les images. 
 Si le bloc Server est absent, cela signifie que le client ne parvient pas à communiquer avec le moteur Docker, par exemple parce qu’il n’est pas démarré.
 
-1.2 : Dans la commande -p 8080:80, le premier nombre 8080 correspond au port de la machine et le deuxième nombre 80 correspond au port du conteneur. 
+1.2  : Dans la commande -p 8080:80, le premier nombre 8080 correspond au port de la machine et le deuxième nombre 80 correspond au port du conteneur. 
 Cette liaison permet d’accéder au serveur web du conteneur depuis le navigateur de la machine.
 
 1.3 : Une image est un modèle qui contient les éléments nécessaires pour lancer une application. Un conteneur est une instance (un exemplaire) de cette image qui s’exécute.
